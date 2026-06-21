@@ -14,41 +14,89 @@ function formatDate(date: Date) {
 
 export default function EligibilitePage() {
   const [step, setStep] = useState(1);
+
   const [birthDate, setBirthDate] = useState("");
   const [ageResult, setAgeResult] = useState<string | null>(null);
   const [isAdult, setIsAdult] = useState<boolean | null>(null);
   const [eligibilityDate, setEligibilityDate] = useState("");
+
+  const [referenceDate, setReferenceDate] = useState("");
+  const [referenceDateResult, setReferenceDateResult] = useState<string | null>(null);
+
   const [residencyStartDate, setResidencyStartDate] = useState("");
   const [residencyResult, setResidencyResult] = useState<string | null>(null);
   const [hasTwoYearsResidency, setHasTwoYearsResidency] = useState<boolean | null>(null);
 
   function checkAge() {
-  if (!birthDate) {
-    setAgeResult("Veuillez renseigner votre date de naissance.");
-    setIsAdult(null);
-    setEligibilityDate("");
-    return;
+    if (!birthDate) {
+      setAgeResult("Veuillez renseigner votre date de naissance.");
+      setIsAdult(null);
+      setEligibilityDate("");
+      return;
+    }
+
+    const today = new Date();
+    const birth = new Date(birthDate);
+    const eighteenthBirthday = addYears(birth, 18);
+
+    if (today >= eighteenthBirthday) {
+      setIsAdult(true);
+      setEligibilityDate(today.toISOString().split("T")[0]);
+      setAgeResult("✅ Vous remplissez la condition d’âge minimum de 18 ans.");
+    } else {
+      setIsAdult(false);
+      setEligibilityDate(eighteenthBirthday.toISOString().split("T")[0]);
+      setAgeResult(
+        `❌ Vous ne remplissez pas encore la condition d’âge minimum. Vous serez éligible à partir du ${formatDate(eighteenthBirthday)}.`
+      );
+    }
   }
 
-  const today = new Date();
-  const birth = new Date(birthDate);
-  const eighteenthBirthday = addYears(birth, 18);
+  function validateReferenceDate() {
+    if (!referenceDate) {
+      setReferenceDateResult("Veuillez renseigner votre date prévisionnelle d’entrée FCR.");
+      return;
+    }
 
-  if (today >= eighteenthBirthday) {
-    setIsAdult(true);
-    setEligibilityDate(today.toISOString().split("T")[0]);
-    setAgeResult("✅ Vous remplissez la condition d’âge minimum de 18 ans.");
-  } else {
-    setIsAdult(false);
-    setEligibilityDate(eighteenthBirthday.toISOString().split("T")[0]);
-    setAgeResult(
-      `❌ Vous ne remplissez pas encore la condition d’âge minimum. Vous serez éligible à partir du ${formatDate(
-        eighteenthBirthday
-      )}.`
+    const fcrDate = new Date(referenceDate);
+    const periodA1Start = addYears(fcrDate, -1);
+    const periodA2Start = addYears(fcrDate, -2);
+
+    setReferenceDateResult(
+      `✅ Date FCR enregistrée : ${formatDate(fcrDate)}.
+Période A-1 : ${formatDate(periodA1Start)} → ${formatDate(fcrDate)}.
+Période A-2 : ${formatDate(periodA2Start)} → ${formatDate(periodA1Start)}.`
     );
   }
-}
 
+  function checkResidency() {
+    if (!residencyStartDate) {
+      setResidencyResult("Veuillez renseigner votre date d’installation à l’étranger.");
+      setHasTwoYearsResidency(null);
+      return;
+    }
+
+    if (!referenceDate) {
+      setResidencyResult("Veuillez d’abord renseigner votre date d’entrée FCR.");
+      setHasTwoYearsResidency(null);
+      return;
+    }
+
+    const fcrDate = new Date(referenceDate);
+    const residencyStart = new Date(residencyStartDate);
+    const residencyEligibilityDate = addYears(residencyStart, 2);
+
+    if (fcrDate >= residencyEligibilityDate) {
+      setHasTwoYearsResidency(true);
+      setResidencyResult("✅ Vous remplissez la condition de résidence minimale de 2 ans à l’étranger à la date FCR choisie.");
+    } else {
+      setHasTwoYearsResidency(false);
+      setEligibilityDate(residencyEligibilityDate.toISOString().split("T")[0]);
+      setResidencyResult(
+        `❌ À la date FCR choisie, vous ne remplissez pas encore la condition de résidence minimale. Vous serez potentiellement éligible à partir du ${formatDate(residencyEligibilityDate)}.`
+      );
+    }
+  }
 
   return (
     <main className="min-h-screen bg-slate-950 text-white px-6 py-12">
@@ -59,9 +107,7 @@ export default function EligibilitePage() {
 
         {step === 1 && (
           <>
-            <h1 className="mb-6 text-4xl font-bold">
-              Vérifier mon éligibilité FCR
-            </h1>
+            <h1 className="mb-6 text-4xl font-bold">Vérifier mon éligibilité FCR</h1>
 
             <p className="mb-8 text-slate-300">
               Commençons par vérifier la condition d’âge minimum du bénéficiaire.
@@ -90,12 +136,10 @@ export default function EligibilitePage() {
                 <p>{ageResult}</p>
 
                 <button
-                    onClick={() => setStep(2)}
-                    className="mt-6 rounded-full bg-white px-6 py-3 font-semibold text-slate-950 hover:bg-slate-200 transition"
+                  onClick={() => setStep(2)}
+                  className="mt-6 rounded-full bg-white px-6 py-3 font-semibold text-slate-950 hover:bg-slate-200 transition"
                 >
-                    {isAdult
-                        ? "Continuer"
-                        : "Continuer la simulation avec cette date"}
+                  {isAdult ? "Continuer" : "Continuer la simulation avec cette date"}
                 </button>
               </div>
             )}
@@ -104,23 +148,21 @@ export default function EligibilitePage() {
 
         {step === 2 && (
           <>
-            <h1 className="mb-6 text-4xl font-bold">
-              Résidence à l’étranger
-            </h1>
+            <h1 className="mb-6 text-4xl font-bold">Date d’entrée FCR</h1>
 
             <p className="mb-8 text-slate-300">
-              Indiquez depuis quelle date vous résidez à l’étranger.
+              Indiquez la date prévisionnelle d’entrée en Tunisie à laquelle vous souhaitez bénéficier du FCR.
             </p>
 
             <label className="mb-3 block text-sm font-medium text-slate-200">
-              Date d’installation à l’étranger
+              Date prévisionnelle d’entrée en Tunisie
             </label>
 
             <input
-                type="date"
-                value={residencyStartDate}
-                onChange={(event) => setResidencyStartDate(event.target.value)}
-                className="mb-8 w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white"
+              type="date"
+              value={referenceDate}
+              onChange={(event) => setReferenceDate(event.target.value)}
+              className="mb-8 w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white"
             />
 
             <div className="flex gap-4">
@@ -132,54 +174,78 @@ export default function EligibilitePage() {
               </button>
 
               <button
+                onClick={validateReferenceDate}
+                className="rounded-full bg-cyan-400 px-6 py-3 font-semibold text-slate-950 hover:bg-cyan-300 transition"
+              >
+                Valider
+              </button>
+            </div>
+
+            {referenceDateResult && (
+              <div className="mt-8 rounded-2xl border border-slate-700 bg-slate-900 p-6 text-slate-200 whitespace-pre-line">
+                <p>{referenceDateResult}</p>
+
+                <button
+                  onClick={() => setStep(3)}
+                  className="mt-6 rounded-full bg-white px-6 py-3 font-semibold text-slate-950 hover:bg-slate-200 transition"
+                >
+                  Continuer
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {step === 3 && (
+          <>
+            <h1 className="mb-6 text-4xl font-bold">Résidence à l’étranger</h1>
+
+            <p className="mb-8 text-slate-300">
+              Indiquez depuis quelle date vous résidez à l’étranger. Cette condition sera vérifiée par rapport à votre date FCR.
+            </p>
+
+            <label className="mb-3 block text-sm font-medium text-slate-200">
+              Date d’installation à l’étranger
+            </label>
+
+            <input
+              type="date"
+              value={residencyStartDate}
+              onChange={(event) => setResidencyStartDate(event.target.value)}
+              className="mb-8 w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-white"
+            />
+
+            <div className="flex gap-4">
+              <button
+                onClick={() => setStep(2)}
+                className="rounded-full border border-slate-600 px-6 py-3 font-semibold text-white hover:bg-slate-800 transition"
+              >
+                Retour
+              </button>
+
+              <button
                 onClick={checkResidency}
                 className="rounded-full bg-cyan-400 px-6 py-3 font-semibold text-slate-950 hover:bg-cyan-300 transition"
-                >
-                    Vérifier
-                </button>
-                {residencyResult && (
-                    <div className="mt-8 rounded-2xl border border-slate-700 bg-slate-900 p-6 text-slate-200">
-                         <p>{residencyResult}</p>
+              >
+                Vérifier
+              </button>
+            </div>
 
-                    <button
-                        onClick={() => setStep(3)}
-                        className="mt-6 rounded-full bg-white px-6 py-3 font-semibold text-slate-950 hover:bg-slate-200 transition"
-                                                >
-                        {hasTwoYearsResidency
-                        ? "Continuer"
-        : "Continuer la simulation avec cette date"}
-    </button>
-  </div>
-)}
-                </div>
-            </>
+            {residencyResult && (
+              <div className="mt-8 rounded-2xl border border-slate-700 bg-slate-900 p-6 text-slate-200">
+                <p>{residencyResult}</p>
+
+                <button
+                  onClick={() => setStep(4)}
+                  className="mt-6 rounded-full bg-white px-6 py-3 font-semibold text-slate-950 hover:bg-slate-200 transition"
+                >
+                  {hasTwoYearsResidency ? "Continuer" : "Continuer la simulation avec cette date"}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </section>
     </main>
   );
-}
-
-function checkResidency() {
-  if (!residencyStartDate) {
-    setResidencyResult("Veuillez renseigner votre date d’installation à l’étranger.");
-    setHasTwoYearsResidency(null);
-    return;
-  }
-
-  const referenceDate = eligibilityDate ? new Date(eligibilityDate) : new Date();
-  const residencyStart = new Date(residencyStartDate);
-  const residencyEligibilityDate = addYears(residencyStart, 2);
-
-  if (referenceDate >= residencyEligibilityDate) {
-    setHasTwoYearsResidency(true);
-    setResidencyResult("✅ Vous remplissez la condition de résidence minimale de 2 ans à l’étranger.");
-  } else {
-    setHasTwoYearsResidency(false);
-    setEligibilityDate(residencyEligibilityDate.toISOString().split("T")[0]);
-    setResidencyResult(
-      `❌ Vous ne remplissez pas encore la condition de résidence minimale. Vous serez potentiellement éligible à partir du ${formatDate(
-        residencyEligibilityDate
-      )}.`
-    );
-  }
 }
